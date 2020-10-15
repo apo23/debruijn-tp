@@ -22,7 +22,6 @@ import os
 import sys
 import networkx as nx
 import matplotlib
-import matplotlib.pyplot as plt
 random.seed(9001)
 
 __author__ = "Apollinaire Roubert"
@@ -123,16 +122,13 @@ def get_sink_nodes(graph):
 
 def get_contigs(graph, nodes_in, nodes_out):
     contigs = []
-    paths_list = []
     for node_in in nodes_in:
         for node_out in nodes_out:
-            paths_list.append(nx.all_simple_paths(graph, node_in, node_out))
-    for paths in paths_list:
-        for path in paths:
-            contig = path[0]
-            for i in range(1,len(path)):
-                contig += path[i][-1]
-            contigs.append( (contig, len(contig)) )
+            for path in nx.all_simple_paths(graph, node_in, node_out):
+                contig = path[0]
+                for i in range(1,len(path)):
+                    contig += path[i][-1]
+                contigs.append( (contig, len(contig)) )
     return contigs
 
 
@@ -152,28 +148,117 @@ def save_contigs(tuple_list, filout_name):
 
 
 def std(values):
-    pass
+    return statistics.stdev(values)
 
 
 def path_average_weight(graph, path):
-    pass
+    weight = 0
+    for i in range(len(path)-1):
+        weight += graph.edges[path[i], path[i+1]]["weight"]
+    return ( weight/(len(path)-1) )
 
 
-def remove_paths(graph, path_list, delete_entry_node, delete_sink_node):
-    pass
+def remove_paths(graph, path_list, delete_entry_node,
+                 delete_sink_node):
+    start= 1
+    end = 1
+    if delete_entry_node:
+        start = 0
+    if delete_sink_node:
+        end = 0
+    for path in path_list:
+        for i in range(start, len(path)-end):
+            graph.remove_node(path[i])
+    return graph
 
 
 def select_best_path(graph, path_list, path_lengths, path_mean_weight,
                      delete_entry_node=False, delete_sink_node=False):
-    pass
+    delete_path = []
+    max_weight = max(path_mean_weight)
+    max_length = max(path_lengths)
+    max_w_count = path_mean_weight.count(max_weight)
+    max_l_count = path_lengths.count(max_length)
+    w_indices = [i for i, x in enumerate(path_mean_weight) if x == max(path_mean_weight)]
+    l_indices = [i for i, x in enumerate(path_lengths) if x == max(path_lengths)]
+    if std(path_mean_weight) > 0:
+        if max_w_count > 1:
+            if std(path_lengths) > 0:
+                if max_l_count > 1:
+                    choice = randint(0, max_l_count)
+                    for i in l_indices:
+                        if i != choice:
+                            delete_path.append(path_list[i])
+                else:
+                    choice = path_lengths.index(max_length)
+                    for i in range(len(path_lengths)):
+                        if i != choice:
+                            delete_path.append(path_list[i])
+            else:
+                choice = randint(0, max_count)
+                for i in w_indices:
+                    if i != choice:
+                        delete_path.append(path_list[i])
+        else:
+            for i in range(len(path_mean_weight)):
+                if i != path_mean_weight.index(max_weight):
+                    delete_path.append(path_list[i])
+    elif std(path_lengths) > 0:
+        if max_l_count > 1:
+            choice = randint(0, max_l_count)
+            for i in l_indices:
+                if i != choice:
+                    delete_path.append(path_list[i])
+        else:
+            for i in range(len(path_lengths)):
+                if i != path_lengths.index(max_length):
+                    delete_path.append(path_list[i])
+    else:
+        choice = randint(0,len(path_list))
+        for i in range(len(path_list)):
+            if i != choice:
+                delete_path.append(path_list[i])
+    graph = remove_paths(graph, delete_path,
+                         delete_entry_node, delete_sink_node)
+    return graph
 
 
 def solve_bubble(graph, node_old, node_new):
-    pass
+    if not nx.ancestors(graph, node_new):
+        pass
+    gen_successors = graph.successors(node_old)
+    successors = []
+    for i in gen_successors:
+        successors.append(i)
+    if not successors:
+        pass
+    gen_path_list = nx.all_simple_paths(graph, node_old, node_new)
+    path_list = []
+    path_lengths = []
+    path_mean_weight = []
+    for path in gen_path_list:
+        path_list.append(path)
+        path_lengths.append(len(path))
+        path_mean_weight.append(path_average_weight(graph, path))
+    return select_best_path(graph, path_list, path_lengths, path_mean_weight)
 
 
 def simplify_bubbles(graph):
-    pass
+    nodes_list = graph.nodes
+    graph_out = None
+    for node in nodes_list:
+        gen_pred = graph.predecessors(node)
+        pred_tmp = []
+        node_old = 0
+        node_new = 0
+        for pred in gen_pred:
+            pred_tmp.append(pred)
+        if len(pred_tmp) > 1:
+            node_old = nx.lowest_common_ancestor(graph, pred_tmp[0], pred_tmp[1])
+            node_new = node
+            graph = solve_bubble(graph, node_old, node_new)
+            return simplify_bubbles(graph)
+    return graph
 
 
 def solve_entry_tips(graph, nodes_in):
@@ -200,6 +285,7 @@ def main():
     nodes_out = get_sink_nodes(graph)
     contigs = get_contigs(graph, nodes_in, nodes_out)
     save_contigs(contigs, "test")
+    simplify_bubbles(graph)
 
 
 if __name__ == '__main__':
