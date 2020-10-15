@@ -13,24 +13,25 @@
 
 """Perform assembly based on debruijn graph."""
 
+import random
+from random import randint
+import statistics
+from operator import itemgetter
 import argparse
 import os
 import sys
 import networkx as nx
 import matplotlib
-from operator import itemgetter
-import random
+import matplotlib.pyplot as plt
 random.seed(9001)
-from random import randint
-import statistics
 
-__author__ = "Your Name"
+__author__ = "Apollinaire Roubert"
 __copyright__ = "Universite Paris Diderot"
-__credits__ = ["Your Name"]
+__credits__ = ["Apollinaire Roubert"]
 __license__ = "GPL"
 __version__ = "1.0.0"
-__maintainer__ = "Your Name"
-__email__ = "your@email.fr"
+__maintainer__ = "Apollinaire Roubert"
+__email__ = "apollinaire.roubert@etu.u-paris.fr"
 __status__ = "Developpement"
 
 def isfile(path):
@@ -65,6 +66,98 @@ def get_arguments():
     return parser.parse_args()
 
 
+def read_fastq(fastq_file):
+    with open(fastq_file, "r") as filin:
+        for line in filin:
+            yield next(filin).strip()
+            next(filin)
+            next(filin)
+
+
+def cut_kmer(sequence, kmer_size):
+    for i in range(len(sequence)-kmer_size):
+        yield sequence[i:i+kmer_size]
+
+
+def build_kmer_dict(fastq_file, kmer_size):
+    sequences = read_fastq(fastq_file)
+    kmer_dict = {}
+    for seq in sequences:
+        kmers = cut_kmer(seq, kmer_size)
+        for k in kmers:
+            if k in seq:
+                if k not in kmer_dict:
+                    kmer_dict[k] = 0
+                kmer_dict[k] += 1
+    return kmer_dict
+
+
+def build_graph(kmer_dict):
+    G = nx.DiGraph()
+    for k in kmer_dict:
+        prefix = k[:-1]
+        suffix = k[1:]
+        G.add_node(prefix)
+        G.add_node(suffix)
+        G.add_edge(prefix, suffix, weight = kmer_dict[k])
+    nx.draw(G, with_labels = True)
+    plt.show()
+
+
+def get_starting_nodes(graph):
+    pass
+
+
+def get_sink_nodes(graph):
+    pass
+
+
+def get_contigs(graph, nodes_in, nodes_out):
+    pass
+
+
+def save_contigs(tuple_list, filout_name):
+    pass
+
+
+def fill(text, width=80):
+    """Split text with a line return to respect fasta format"""
+    return os.linesep.join(text[i:i+width] for i in range(0, len(text), width))
+
+
+def std(values):
+    pass
+
+
+def path_average_weight(graph, path):
+    pass
+
+
+def remove_paths(graph, path_list, delete_entry_node, delete_sink_node):
+    pass
+
+
+def select_best_path(graph, path_list, path_lengths, path_mean_weight,
+                     delete_entry_node=False, delete_sink_node=False):
+    pass
+
+
+def solve_bubble(graph, node_old, node_new):
+    pass
+
+
+def simplify_bubbles(graph):
+    pass
+
+
+def solve_entry_tips(graph, nodes_in):
+    pass
+
+
+def solve_out_tips(graph, nodes_out):
+    pass
+
+
 #==============================================================
 # Main program
 #==============================================================
@@ -74,6 +167,9 @@ def main():
     """
     # Get arguments
     args = get_arguments()
+    gen = read_fastq(args.fastq_file)
+    kmer_dict = build_kmer_dict(args.fastq_file, args.kmer_size)
+    build_graph(kmer_dict)
 
 if __name__ == '__main__':
     main()
