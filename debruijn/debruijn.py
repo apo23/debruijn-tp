@@ -155,7 +155,7 @@ def path_average_weight(graph, path):
     weight = 0
     for i in range(len(path)-1):
         weight += graph.edges[path[i], path[i+1]]["weight"]
-    return ( weight/(len(path)-1) )
+    return weight/(len(path)-1)
 
 
 def remove_paths(graph, path_list, delete_entry_node,
@@ -195,7 +195,7 @@ def select_best_path(graph, path_list, path_lengths, path_mean_weight,
                         if i != choice:
                             delete_path.append(path_list[i])
             else:
-                choice = randint(0, max_count)
+                choice = randint(0, max_w_count)
                 for i in w_indices:
                     if i != choice:
                         delete_path.append(path_list[i])
@@ -245,7 +245,6 @@ def solve_bubble(graph, node_old, node_new):
 
 def simplify_bubbles(graph):
     nodes_list = graph.nodes
-    graph_out = None
     for node in nodes_list:
         gen_pred = graph.predecessors(node)
         pred_tmp = []
@@ -262,11 +261,49 @@ def simplify_bubbles(graph):
 
 
 def solve_entry_tips(graph, nodes_in):
-    pass
+    for node in nodes_in:
+        gen_desc = nx.descendants(graph, node)
+        for desc in gen_desc:
+            gen_pred = [i for i in graph.predecessors(desc)]
+            if len(gen_pred) > 1:
+                path_list = []
+                path_lengths = []
+                path_mean_weight = []
+                desc_ancestors = [i for i in nx.ancestors(graph, desc) if i in nodes_in]
+                for curr_node in desc_ancestors:
+                    curr_path = nx.shortest_path(graph, curr_node, desc)
+                    path_list.append( curr_path )
+                    path_mean_weight.append(path_average_weight(graph, curr_path))
+                    path_lengths.append(len(curr_path))
+                select_best_path(graph, path_list, path_lengths, path_mean_weight,
+                                 delete_entry_node=True)
+                new_nodes_in = [i for i in nodes_in if i in list(graph.nodes)]
+                return solve_entry_tips(graph, new_nodes_in)
+    return graph
 
 
 def solve_out_tips(graph, nodes_out):
-    pass
+    print([i for i in nodes_out if i in list(graph.nodes)])
+    for node in nodes_out:
+        gen_ance = nx.ancestors(graph, node)
+        print(gen_ance)
+        for ance in gen_ance:
+            gen_succ = [i for i in graph.successors(ance)]
+            if len(gen_succ) > 1:
+                path_list = []
+                path_lengths = []
+                path_mean_weight = []
+                ance_descendants = [i for i in nx.descendants(graph, ance) if i in nodes_out]
+                for curr_node in ance_descendants:
+                    curr_path = nx.shortest_path(graph, ance, curr_node)
+                    path_list.append( curr_path )
+                    path_mean_weight.append(path_average_weight(graph, curr_path))
+                    path_lengths.append(len(curr_path))
+                select_best_path(graph, path_list, path_lengths, path_mean_weight,
+                                 delete_sink_node=True)
+                new_nodes_out = [i for i in nodes_out if i in list(graph.nodes)]
+                return solve_out_tips(graph, new_nodes_out)
+    return graph
 
 
 #==============================================================
