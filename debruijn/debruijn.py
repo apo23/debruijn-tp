@@ -66,6 +66,11 @@ def get_arguments():
 
 
 def read_fastq(fastq_file):
+    """Retrieves the sequences of a fastq file
+      :Parameters:
+          fastq_file: a fastq file
+      Returns: A generator of the sequences
+    """
     with open(fastq_file, "r") as filin:
         for line in filin:
             yield next(filin).strip()
@@ -74,11 +79,23 @@ def read_fastq(fastq_file):
 
 
 def cut_kmer(sequence, kmer_size):
+    """Generates a sequence's kmers
+      :Parameters:
+          sequence: a sequence to be cut into kmers, in str
+          kmer_size: the length of the kmers, in int
+      Returns: A generator of kmers of the sequence
+    """
     for i in range(len(sequence)-(kmer_size-1)):
         yield sequence[i:i+kmer_size]
 
 
 def build_kmer_dict(fastq_file, kmer_size):
+    """Creates the dictionary of a fastq file with all kmers and their occurence
+      :Parameters:
+          fastq_file: a fastq file
+          kmer_size: the length of the kmers, in int
+      Returns: A dictionary with kmers as keys and occurences as values
+    """
     sequences = read_fastq(fastq_file)
     kmer_dict = {}
     for seq in sequences:
@@ -92,6 +109,11 @@ def build_kmer_dict(fastq_file, kmer_size):
 
 
 def build_graph(kmer_dict):
+    """Creates a directed graph of all kmer prefixes and suffixes
+      :Parameters:
+          kmer_dict: a dictionnary of kmers and their occurence
+      Returns: A directed graph of kmers with links between prefix and suffix
+    """
     G = nx.DiGraph()
     for k in kmer_dict:
         prefix = k[:-1]
@@ -99,12 +121,15 @@ def build_graph(kmer_dict):
         G.add_node(prefix)
         G.add_node(suffix)
         G.add_edge(prefix, suffix, weight = kmer_dict[k])
-    #nx.draw(G, with_labels=True)
-    #plt.show()
     return G
 
 
 def get_starting_nodes(graph):
+    """Gives entry nodes of a graph
+      :Parameters:
+          graph: a directed graph
+      Returns: A list of all entry nodes
+    """
     nodes_in = []
     for node in graph.nodes:
         if not graph.in_edges(node):
@@ -113,6 +138,11 @@ def get_starting_nodes(graph):
 
 
 def get_sink_nodes(graph):
+    """Gives exit nodes of a graph
+      :Parameters:
+          graph: a directed graph
+      Returns: A list of all exit nodes
+    """
     nodes_out = []
     for node in graph.nodes:
         if not graph.out_edges(node):
@@ -121,6 +151,13 @@ def get_sink_nodes(graph):
 
 
 def get_contigs(graph, nodes_in, nodes_out):
+    """Gives all possible paths between entry nodes and exit nodes (contigs)
+      :Parameters:
+          graph: a directed graph
+          nodes_in: entry nodes of the graph
+          nodes_out: exit nodes of the graph
+      Returns: A list of tuples containing contig and length of contig
+    """
     contigs = []
     for node_in in nodes_in:
         for node_out in nodes_out:
@@ -138,7 +175,12 @@ def fill(text, width=80):
 
 
 def save_contigs(tuple_list, filout_name):
-    with open(filout_name + ".fasta", "w") as filout:
+    """Saves the contigs in fasta format
+      :Parameters:
+          tuple_list: a list of tuples with contig and length of contig
+          filout_name: name of the output file
+    """
+    with open(filout_name, "w") as filout:
         contig_counter = 0
         for contig_tuple in tuple_list:
             filout.write(">contig_{} len={}\n".format(contig_counter,
@@ -148,10 +190,21 @@ def save_contigs(tuple_list, filout_name):
 
 
 def std(values):
+    """Gives the standard deviation between all given values
+      :Parameters:
+          values: a list of values
+      Returns: The standard deviation
+    """
     return statistics.stdev(values)
 
 
 def path_average_weight(graph, path):
+    """Gives the average weight of a path
+      :Parameters:
+          graph: a directed graph
+          path: a path found in the graph
+      Returns: The average weight of all edges in the path
+    """
     weight = 0
     for i in range(len(path)-1):
         weight += graph.edges[path[i], path[i+1]]["weight"]
@@ -160,6 +213,14 @@ def path_average_weight(graph, path):
 
 def remove_paths(graph, path_list, delete_entry_node,
                  delete_sink_node):
+    """Removes paths between two nodes
+      :Parameters:
+          graph: a directed graph
+          path_list: a list of paths to remove
+          delete_entry_node: boolean, whether to remove the entry node
+          delete_sink_node: boolean, whether to remove the exit node
+      Returns: A graph with specified paths removed
+    """
     start= 1
     end = 1
     if delete_entry_node:
@@ -174,6 +235,16 @@ def remove_paths(graph, path_list, delete_entry_node,
 
 def select_best_path(graph, path_list, path_lengths, path_mean_weight,
                      delete_entry_node=False, delete_sink_node=False):
+    """Selects the best path between several possible ones
+      :Parameters:
+          graph: a directed graph
+          path_list: a list of paths to remove
+          path_lengths: a list of path lengths, same order
+          path_mean_weight: a list of path weights, same order
+          delete_entry_node: boolean, whether to remove the entry node
+          delete_sink_node: boolean, whether to remove the exit node
+      Returns: A list of all entry nodes
+    """
     delete_path = []
     max_weight = max(path_mean_weight)
     max_length = max(path_lengths)
@@ -224,6 +295,13 @@ def select_best_path(graph, path_list, path_lengths, path_mean_weight,
 
 
 def solve_bubble(graph, node_old, node_new):
+    """Removes a bubble in the graph
+      :Parameters:
+          graph: a directed graph
+          node_old: entry node of the bubble
+          node_new: exit node of the bubble
+      Returns: A graph with specified bubble gone
+    """
     if not nx.ancestors(graph, node_new):
         pass
     gen_successors = graph.successors(node_old)
@@ -244,6 +322,11 @@ def solve_bubble(graph, node_old, node_new):
 
 
 def simplify_bubbles(graph):
+    """Removes all bubbles in the graph
+      :Parameters:
+          graph: a directed graph
+      Returns: A graph with no bubbles
+    """
     nodes_list = graph.nodes
     for node in nodes_list:
         gen_pred = graph.predecessors(node)
@@ -261,6 +344,12 @@ def simplify_bubbles(graph):
 
 
 def solve_entry_tips(graph, nodes_in):
+    """Removes all entry tips
+      :Parameters:
+          graph: a directed graph
+          nodes_in: all entry nodes
+      Returns: A graph with no entry tips
+    """
     for node in nodes_in:
         gen_desc = nx.descendants(graph, node)
         for desc in gen_desc:
@@ -283,10 +372,14 @@ def solve_entry_tips(graph, nodes_in):
 
 
 def solve_out_tips(graph, nodes_out):
-    print([i for i in nodes_out if i in list(graph.nodes)])
+    """Removes all out tips
+      :Parameters:
+          graph: a directed graph
+          nodes_in: all exit nodes
+      Returns: A graph with no out tips
+    """
     for node in nodes_out:
         gen_ance = nx.ancestors(graph, node)
-        print(gen_ance)
         for ance in gen_ance:
             gen_succ = [i for i in graph.successors(ance)]
             if len(gen_succ) > 1:
@@ -320,9 +413,13 @@ def main():
     graph = build_graph(kmer_dict)
     nodes_in = get_starting_nodes(graph)
     nodes_out = get_sink_nodes(graph)
+    graph = simplify_bubbles(graph)
+    graph = solve_entry_tips(graph, nodes_in)
+    graph = solve_out_tips(graph, nodes_out)
+    nodes_in = get_starting_nodes(graph) #Update after entry tips are gone
+    nodes_out = get_sink_nodes(graph) #Update afte out tips are gone
     contigs = get_contigs(graph, nodes_in, nodes_out)
-    save_contigs(contigs, "test")
-    simplify_bubbles(graph)
+    save_contigs(contigs, args.output_file)
 
 
 if __name__ == '__main__':
